@@ -4,7 +4,7 @@ Static UI for reviewing immunization data completeness, registry readiness,
 and audit risk indicators.
 
 ## Live Demo
-https://<your-username>.github.io/immunization-audit-ui/
+https://aakashkatiyar533.github.io/immunization-audit-ui/
 
 ## Tech
 - Vanilla JavaScript
