@@ -10,7 +10,7 @@
     />
 
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
 
     <!-- Flatpickr (date picker) -->
     <link
@@ -152,6 +152,11 @@
               <span class="legendSwatch low"></span>
               Low priority (Contact details incomplete)
             </span>
+
+            <span class="legendItem">
+              <span class="legendSwatch reviewed"></span>
+              Reviewed (Verified and corrected)
+            </span>
           </div>
 
           <div style="font-size: 10px; color: #6b7280; margin-top: 4px">
@@ -233,29 +238,112 @@
         aria-modal="true"
         aria-labelledby="welcomeTitle"
       >
-        <div class="rgBody">
-          <ul>
-            <li>Select a date range (defaults to the last 7 days).</li>
-            <li>
-              Type <b>T</b> or <b>t</b> in a date field to auto-fill today’s
-              date.
-            </li>
-            <li>
-              Use missing-field filters to narrow review (Lot, NDC, VFC,
-              Funding, Contact).
-            </li>
-            <li>
-              Click a <b>Document ID</b> to view guidance and suggested fixes.
-            </li>
-            <li>
-              Use readiness score and row highlighting to prioritize follow-up.
-            </li>
-            <li>
-              Mark the record reviewed after the correction is completed in the
-              EHR.
-            </li>
-            <li>Export CSV for follow-up or audit tracking.</li>
-          </ul>
+        <!-- Modal header -->
+        <div class="welcomeHeader">
+          <div>
+            <h3 id="welcomeTitle">How to use this dashboard</h3>
+            <p class="welcomeSub">
+              Quickly identify and correct immunization documentation gaps.
+            </p>
+          </div>
+          <!-- Close X -->
+          <button
+            type="button"
+            class="welcomeCloseBtn"
+            id="closeWelcomeBtn"
+            aria-label="Close help"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="rgBody howToBody">
+          <div class="howSection">
+            <h4>What this dashboard helps you do</h4>
+            <p class="howText">
+              This dashboard highlights immunization records with documentation
+              gaps that may delay registry acceptance, funding reconciliation,
+              or audit readiness.
+            </p>
+          </div>
+
+          <div class="howSection">
+            <h4>How to review records</h4>
+            <ul class="howList">
+              <li>
+                Filter records by date range (defaults to the last 7 days).
+              </li>
+              <li>
+                Type <b>T</b> or <b>t</b> in a date field to auto-fill today’s
+                date.
+              </li>
+              <li>
+                Rows are automatically highlighted based on potential reporting
+                impact.
+              </li>
+              <li>
+                Click a <b>Document ID</b> to view record-level guidance and
+                fixes.
+              </li>
+            </ul>
+          </div>
+
+          <div class="howSection">
+            <h4>Reading the table at a glance</h4>
+            <p class="howText">
+              Row colors indicate the potential impact of missing or incomplete
+              immunization data.
+            </p>
+            <!-- Mini table row mockup -->
+            <div class="rowMockup">
+              <div class="mockRow high">
+                <span class="mockCell doc">IM-10234</span>
+                <span class="mockCell vaccine">High priority</span>
+                <span class="mockCell note"
+                  >VFC Eligibility and Funding Source missing</span
+                >
+              </div>
+
+              <div class="mockRow medium">
+                <span class="mockCell doc">IM-10256</span>
+                <span class="mockCell vaccine">Medium priority </span>
+                <span class="mockCell note">Race and Ethnicity missing</span>
+              </div>
+
+              <div class="mockRow low">
+                <span class="mockCell doc">IM-10278</span>
+                <span class="mockCell vaccine">Low priority</span>
+                <span class="mockCell note">Contact details incomplete</span>
+              </div>
+
+              <div class="mockRow reviewed">
+                <span class="mockCell doc">IM-10301</span>
+                <span class="mockCell vaccine">HepB</span>
+                <span class="mockCell note">Reviewed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="howSection">
+            <h4>Completing your review</h4>
+            <ul class="howList">
+              <li>Correct missing or incorrect fields directly in the EHR.</li>
+              <li>
+                Mark the record as <b>Reviewed</b> once corrections are
+                complete.
+              </li>
+              <li>
+                Reviewed records are visually de-emphasized to avoid duplicate
+                follow-up.
+              </li>
+              <li>
+                Export CSV to support team follow-up, audits, or registry
+                coordination.
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -269,6 +357,6 @@
        SCRIPTS
   ========================== -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="app.js"></script>
+    <script src="./app.js"></script>
   </body>
 </html>
