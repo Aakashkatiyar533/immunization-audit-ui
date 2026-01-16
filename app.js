@@ -130,10 +130,41 @@ function computeReadiness(r) {
  * - Medium: missing Lot or NDC (inventory + reconciliation)
  * - Low: missing contact details (outreach)
  */
+function isEmpty(val) {
+  return val === undefined || val === null || String(val).trim() === "";
+}
+
+/**
+ * Row category highlight aligned to your JSON contract:
+ * - High: missing required vaccine/order fields (must not be empty)
+ * - Medium: missing VFC/funding OR missing race/ethnicity (your requirement)
+ * - Low: missing contact details (mobile/email)
+ */
 function riskClassFromRecord(r) {
-  if (!r.vfc_status || !r.funding_source) return "high";
-  if (!r.lot_number || !r.ndc) return "medium";
-  if (!r.email || !r.mobile) return "low";
+  // HIGH: required for a usable immunization order record
+  const highMissing =
+    isEmpty(r.vaccine_name) ||
+    isEmpty(r.quantity) ||
+    isEmpty(r.units) ||
+    isEmpty(r.ndc) ||
+    isEmpty(r.lot_number) ||
+    isEmpty(r.expiration_date);
+
+  if (highMissing) return "high";
+
+  // MEDIUM: allowed to be empty, but operationally important
+  const mediumMissing =
+    isEmpty(r.vfc_status) ||
+    isEmpty(r.funding_source) ||
+    isEmpty(r.race) ||
+    isEmpty(r.ethnicity);
+
+  if (mediumMissing) return "medium";
+
+  // LOW: optional outreach fields
+  const lowMissing = isEmpty(r.mobile) || isEmpty(r.email);
+  if (lowMissing) return "low";
+
   return "";
 }
 
