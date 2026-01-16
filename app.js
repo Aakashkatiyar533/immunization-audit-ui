@@ -86,6 +86,16 @@ const FIELD_GUIDANCE = {
   },
 };
 
+/*************************************************
+ * SEVERITY RULES (Feature 1)
+ *************************************************/
+
+const SEVERITY = {
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low",
+};
+
 const READINESS_WEIGHTS = [
   { field: "lot_number", weight: 25 },
   { field: "ndc", weight: 25 },
@@ -173,6 +183,18 @@ function csvEscape(v) {
   return s;
 }
 
+function isChild(age) {
+  return age !== null && age !== undefined && Number(age) < 19;
+}
+
+function isVfcEligible(vfcStatus) {
+  return vfcStatus && vfcStatus.startsWith("V0") && vfcStatus !== "V01";
+}
+
+function isPublicFunding(funding) {
+  return ["VXC50", "VXC51", "VXC52"].includes(funding);
+}
+
 /* =========================
    Welcome Modal: close + focus trap
 ========================= */
@@ -188,9 +210,13 @@ function openWelcomeModal() {
   if (!modal) return;
 
   modal.style.display = "flex";
-  modal.setAttribute("aria-hidden", "false");
 
-  // Focus inside modal
+  requestAnimationFrame(() => {
+    modal.classList.remove("isClosing");
+    modal.classList.add("isOpen");
+    modal.setAttribute("aria-hidden", "false");
+  });
+
   focusWelcomeModal();
 }
 
@@ -198,15 +224,15 @@ function closeWelcomeModal() {
   const modal = document.getElementById("welcomeModal");
   if (!modal) return;
 
-  modal.style.display = "none";
-  modal.setAttribute("aria-hidden", "true");
+  modal.classList.remove("isOpen");
+  modal.classList.add("isClosing");
 
-  // Release focus trap
-  releaseWelcomeModalFocusTrap();
-
-  // Return focus to Help link if present
-  const help = document.getElementById("helpLink");
-  if (help) help.focus();
+  setTimeout(() => {
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+    modal.classList.remove("isClosing");
+    releaseWelcomeModalFocusTrap();
+  }, 250);
 }
 
 let welcomeTrapHandler = null;
@@ -389,6 +415,48 @@ function showToast(message, type) {
   schedule();
 }
 
+function evaluateRecordSeverity(record) {
+  const issues = [];
+
+  // HIGH: Required vaccine identifiers
+  if (!record.lot_number) {
+    issues.push({ field: "lot_number", severity: SEVERITY.HIGH });
+  }
+  if (!record.ndc) {
+    issues.push({ field: "ndc", severity: SEVERITY.HIGH });
+  }
+
+  // MEDIUM: Expiration sanity
+  if (record.expiration_date && record.administered_date) {
+    if (record.expiration_date < record.administered_date) {
+      issues.push({ field: "expiration_date", severity: SEVERITY.MEDIUM });
+    }
+  }
+
+  // MEDIUM: VFC vs Age
+  if (isVfcEligible(record.vfc_status) && !isChild(record.age)) {
+    issues.push({ field: "vfc_status", severity: SEVERITY.MEDIUM });
+  }
+
+  // MEDIUM: VFC vs Funding
+  if (
+    isVfcEligible(record.vfc_status) &&
+    !isPublicFunding(record.funding_source)
+  ) {
+    issues.push({ field: "funding_source", severity: SEVERITY.MEDIUM });
+  }
+
+  // LOW: Demographic completeness
+  if (!record.race) {
+    issues.push({ field: "race", severity: SEVERITY.LOW });
+  }
+  if (!record.ethnicity) {
+    issues.push({ field: "ethnicity", severity: SEVERITY.LOW });
+  }
+
+  return issues;
+}
+
 /* =========================
    Table rendering (Plain JS)
    - Keeps cells blank when value is missing
@@ -406,9 +474,8 @@ function renderTable(rows) {
     const r = rows[i];
     const tr = document.createElement("tr");
 
-    // Risk highlight
-    const cls = riskClassFromRecord(r);
-    if (cls) tr.classList.add(cls);
+    const risk = riskClassFromRecord(r);
+    if (risk) tr.classList.add(risk);
 
     // Reviewed state
     if (isReviewed(r.doc_id)) tr.classList.add("resolved");
@@ -620,50 +687,67 @@ function openRecordPanel(rec) {
   const panel = document.getElementById("recordPanel");
   if (!panel) return;
 
-  const missingFields = [];
-  for (const w of READINESS_WEIGHTS) {
-    if (!rec[w.field]) missingFields.push(w.field);
-  }
+  // ---- Feature 1: Severity-driven record issues ----
+  const issues = evaluateRecordSeverity(rec);
 
-  const readiness = computeReadiness(rec);
   const reviewed = isReviewed(rec.doc_id);
   const reviewedTs = getReviewedTimestamp(rec.doc_id);
 
-  const missingList = missingFields.length
-    ? missingFields
-        .map((f) => {
-          const g = FIELD_GUIDANCE[f];
-          const label = g ? g.label : f;
-          const sev = g?.severity
-            ? ` <span class="sevTag sev${escapeHtml(g.severity)}">${escapeHtml(
-                g.severity
-              )} impact</span>`
-            : "";
-          return `<li><b>${escapeHtml(label)}</b></li>`;
+  const missingList = issues.length
+    ? issues
+        .map((issue) => {
+          const g = FIELD_GUIDANCE[issue.field];
+          const label = g ? g.label : issue.field;
+
+          const severityLabel =
+            issue.severity === SEVERITY.HIGH
+              ? "High impact"
+              : issue.severity === SEVERITY.MEDIUM
+              ? "Medium impact"
+              : "Low impact";
+
+          return `
+          <li>
+            ${escapeHtml(label)}
+            <span class="sevTag sev${escapeHtml(issue.severity)}">
+              ${severityLabel}
+            </span>
+          </li>
+        `;
         })
         .join("")
-    : "<li>None detected based on current scoring rules.</li>";
+    : "<li>No missing or high-risk elements detected.</li>";
 
-  const guidanceItems = missingFields
-    .map((f) => {
-      const g = FIELD_GUIDANCE[f];
-      if (!g) return "";
-      return `
-        <li class="guidanceItem">
-          <div class="guidanceHead">
-            <b>${escapeHtml(g.label)}</b>
-            <span class="sevTag sev${escapeHtml(g.severity)}">${escapeHtml(
-        g.severity
-      )} impact</span>
-          </div>
-          <div class="guidanceBody">
-            <div><b>Why it matters:</b> ${escapeHtml(g.impact)}</div>
-            <div><b>Recommended action:</b> ${escapeHtml(g.fix)}</div>
-          </div>
-        </li>
-      `;
-    })
-    .join("");
+  const guidanceItems = issues.length
+    ? issues
+        .map((issue) => {
+          const g = FIELD_GUIDANCE[issue.field];
+          if (!g) return "";
+
+          const severityLabel =
+            issue.severity === SEVERITY.HIGH
+              ? "High impact"
+              : issue.severity === SEVERITY.MEDIUM
+              ? "Medium impact"
+              : "Low impact";
+
+          return `
+          <li class="guidanceItem">
+            <div class="guidanceHead">
+              ${escapeHtml(g.label)}
+              <span class="sevTag sev${escapeHtml(issue.severity)}">
+                ${severityLabel}
+              </span>
+            </div>
+            <div class="guidanceBody">
+              <div>${escapeHtml(g.impact)}</div>
+              <div><b>What to do:</b> ${escapeHtml(g.fix)}</div>
+            </div>
+          </li>
+        `;
+        })
+        .join("")
+    : "<li>No guidance items to show.</li>";
 
   // Provider-friendly reviewed text
   const reviewedLine = reviewedTs
@@ -761,9 +845,14 @@ function openRecordPanel(rec) {
 
   // Show and focus
   panel.style.display = "flex";
-  panel.setAttribute("aria-hidden", "false");
-  panel.setAttribute("tabindex", "-1");
-  panel.focus();
+
+  requestAnimationFrame(() => {
+    panel.classList.remove("isClosing");
+    panel.classList.add("isOpen");
+    panel.setAttribute("aria-hidden", "false");
+    panel.setAttribute("tabindex", "-1");
+    panel.focus();
+  });
 
   const closeBtn = document.getElementById("closePanelBtn");
   if (closeBtn) {
@@ -805,8 +894,15 @@ function openRecordPanel(rec) {
 function closeRecordPanel() {
   const panel = document.getElementById("recordPanel");
   if (!panel) return;
-  panel.style.display = "none";
-  panel.setAttribute("aria-hidden", "true");
+
+  panel.classList.remove("isOpen");
+  panel.classList.add("isClosing");
+
+  setTimeout(() => {
+    panel.style.display = "none";
+    panel.setAttribute("aria-hidden", "true");
+    panel.classList.remove("isClosing");
+  }, 250);
 }
 
 /* =========================
@@ -1126,6 +1222,22 @@ function wireUI() {
       openWelcomeModal();
     });
   }
+  // Close How-to modal via X
+  const closeWelcomeBtn = document.getElementById("closeWelcomeBtn");
+  if (closeWelcomeBtn) {
+    closeWelcomeBtn.addEventListener("click", function () {
+      const modal = document.getElementById("welcomeModal");
+      if (!modal) return;
+
+      modal.classList.add("isClosing");
+
+      setTimeout(() => {
+        modal.style.display = "none";
+        modal.setAttribute("aria-hidden", "true");
+        modal.classList.remove("isClosing");
+      }, 250); // match CSS transition
+    });
+  }
 
   // Table click: patient link opens guidance panel
   const tbody = document.querySelector("#tbl tbody");
@@ -1220,7 +1332,7 @@ if (welcomeModal) {
 ========================= */
 showLoader("Welcome. Preparing immunization documentation review…");
 setTimeout(hideLoader, 4000);
-fetch("immunization_data.json")
+fetch("./immunization_data.json")
   .then((res) => res.json())
   .then((data) => {
     allRecords = Array.isArray(data) ? data : [];
