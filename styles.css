@@ -142,11 +142,6 @@ tbody tr:hover {
 /*************************************************
  * ROW HIGHLIGHT (RISK)
  *************************************************/
-#tbl tbody tr.high {
-  background: #f8d7da; /* deeper red */
-  border-left: 4px solid #b02a37; /* strong red accent */
-}
-
 #tbl tbody tr.medium {
   background: #ffe0b2; /* deeper amber */
   border-left: 4px solid #b45309; /* strong amber accent */
@@ -160,12 +155,6 @@ tbody tr:hover {
 /*************************************************
  * REVIEWED STATE
  *************************************************/
-tr.resolved {
-  background: #f3f4f6 !important;
-  color: #6b7280;
-  opacity: 0.85;
-}
-
 tr.resolved td {
   text-decoration: none;
 }
@@ -211,9 +200,6 @@ td input[type="checkbox"] {
     font-size: 12px;
     padding: 2px 6px;
   }
-}
-#countPill {
-  background: #5b4da3;
 }
 
 /*************************************************
@@ -420,7 +406,6 @@ td input[type="checkbox"] {
 }
 .rgActions {
   border-top: 1px solid #e5e7eb;
-  padding: 14px 16px; /* match header */
   background: #f7f5fb; /* match header */
   display: flex;
   align-items: center;
@@ -772,54 +757,14 @@ td input[type="checkbox"] {
   border: 1px solid #1d4ed8;
 }
 
-/*************************************************
- * ROW HIGHLIGHT LEGEND
- *************************************************/
-.rowLegend {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px dashed #e5e7eb;
-
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-
-  font-size: 11px;
-  color: #374151;
-}
-
-.legendItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.legendSwatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  display: inline-block;
+.legendSwatch.reviewed {
+  background: #f3f4f6;
+  border: 1px solid #9ca3af;
 }
 /*************************************************
  * ROW HIGHLIGHT (RISK) + REVIEWED
  * Clean left accent using linear-gradient (no pixel corners)
  *************************************************/
-
-/* High */
-#tbl tbody tr.high {
-  background: linear-gradient(to right, #b02a37 0 4px, #f8d7da 4px 100%);
-}
-
-/* Medium */
-#tbl tbody tr.medium {
-  background: linear-gradient(to right, #b45309 0 4px, #ffe0b2 4px 100%);
-}
-
-/* Low */
-#tbl tbody tr.low {
-  background: linear-gradient(to right, #1d4ed8 0 4px, #dbeafe 4px 100%);
-}
 
 /* Reviewed overrides any risk color completely */
 #tbl tbody tr.resolved {
@@ -1084,7 +1029,7 @@ td input[type="checkbox"] {
 }
 .flatpickr-input {
   height: 15px !important;
-  width: 80px;
+  width: 85px;
 }
 
 /* Loader overlay rules consolidated above under TABLE LOADER.
@@ -1093,7 +1038,6 @@ td input[type="checkbox"] {
 .tableWrap {
   position: relative;
 }
-
 
 .loaderBox {
   display: inline-flex;
@@ -1120,4 +1064,313 @@ td input[type="checkbox"] {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ===========================
+   Severity-based Row Highlight
+   =========================== */
+tr.resolved {
+  background-color: #f5f5f5 !important;
+  border-left-color: #bdbdbd !important;
+  color: #6b7280;
+}
+
+/* ===========================
+   Severity-based Row Highlight
+   =========================== */
+
+/* High risk */
+#tbl tbody tr.high {
+  background: linear-gradient(to right, #b02a37 0 4px, #f8d7da 4px 100%);
+}
+
+/* Medium risk */
+#tbl tbody tr.medium {
+  background: linear-gradient(to right, #b45309 0 4px, #ffe0b2 4px 100%);
+}
+
+/* Low risk */
+#tbl tbody tr.low {
+  background: linear-gradient(to right, #1d4ed8 0 4px, #dbeafe 4px 100%);
+}
+
+/* Reviewed overrides risk */
+#tbl tbody tr.resolved {
+  background: linear-gradient(
+    to right,
+    #9ca3af 0 4px,
+    #f3f4f6 4px 100%
+  ) !important;
+  color: #4b5563;
+  opacity: 0.92;
+}
+
+/* =========================
+   How-to / Help Modal
+========================= */
+
+.howToBody {
+  font-size: 12px;
+  color: #374151;
+}
+
+.howSection {
+  margin-bottom: 16px;
+}
+
+.howSection h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #1f2937;
+}
+
+.howText {
+  font-size: 12px;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.howList {
+  padding-left: 16px;
+  margin: 6px 0 0;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.howList li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* =========================
+   Mini Table Row Mockup
+========================= */
+
+.rowMockup {
+  margin: 10px 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.mockRow {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mockRow:last-child {
+  border-bottom: none;
+}
+
+.mockCell {
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.mockCell.doc {
+  font-weight: 600;
+  min-width: 72px;
+}
+
+.mockCell.vaccine {
+  min-width: 80px;
+}
+
+.mockCell.note {
+  color: #4b5563;
+}
+
+/* Left accent colors */
+.mockRow.high {
+  background: linear-gradient(to right, #b02a37 0 4px, #f8d7da 4px 100%);
+}
+
+.mockRow.medium {
+  background: linear-gradient(to right, #b45309 0 4px, #ffe0b2 4px 100%);
+}
+
+.mockRow.low {
+  background: linear-gradient(to right, #1d4ed8 0 4px, #dbeafe 4px 100%);
+}
+
+.mockRow.reviewed {
+  background: linear-gradient(to right, #9ca3af 0 4px, #f3f4f6 4px 100%);
+  color: #6b7280;
+}
+/* =========================
+   Staggered Row Reveal Animation
+========================= */
+
+/* =========================
+   Staggered Row Reveal Animation (NO color fade)
+========================= */
+
+#welcomeModal .mockRow {
+  transform: translateY(6px);
+  animation: rowSlideIn 0.28s ease-out both;
+}
+
+/* Stagger timing */
+#welcomeModal .mockRow:nth-child(1) {
+  animation-delay: 0.05s;
+}
+#welcomeModal .mockRow:nth-child(2) {
+  animation-delay: 0.15s;
+}
+#welcomeModal .mockRow:nth-child(3) {
+  animation-delay: 0.25s;
+}
+#welcomeModal .mockRow:nth-child(4) {
+  animation-delay: 0.35s;
+}
+
+@keyframes rowSlideIn {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+/* Subtle pulse for HIGH priority mock row only */
+#welcomeModal .mockRow.high {
+  animation: rowSlideIn 0.28s ease-out both, highPulse 1.6s ease-in-out 0.75s 2;
+}
+
+@keyframes highPulse {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: saturate(1.12) brightness(1.02);
+  }
+}
+
+/* =========================
+   Welcome modal header
+========================= */
+
+.welcomeHeader {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 2;
+}
+
+.welcomeHeader h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #111827;
+}
+
+.welcomeSub {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Close X button */
+
+.welcomeCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 0;
+  color: #6b7280;
+}
+
+.welcomeCloseBtn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.welcomeCloseBtn:hover {
+  color: #111827;
+}
+
+/* =========================
+   Welcome modal animation + shape fixes
+========================= */
+
+/* Default visible state */
+#welcomeModal {
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+#welcomeModal.isOpen {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fade-out state */
+#welcomeModal.isClosing {
+  opacity: 0;
+}
+
+/* Ensure dialog corners are consistent */
+.welcomeDialog {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+/* ======================================================
+   MODAL ANIMATION SYSTEM (WELCOME + RECORD PANEL)
+   ====================================================== */
+
+/* ---------- Shared base animation ---------- */
+#welcomeModal,
+#recordPanel {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+/* ---------- Open state ---------- */
+#welcomeModal.isOpen,
+#recordPanel.isOpen {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ---------- Closing state ---------- */
+#welcomeModal.isClosing,
+#recordPanel.isClosing {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+/* ---------- Welcome dialog shape consistency ---------- */
+.welcomeDialog {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+/* ---------- Record panel shape consistency ---------- */
+#recordPanel {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+/* Prevent color wash during animations */
+#welcomeModal .mockRow,
+#recordPanel .rgModal {
+  filter: none !important;
 }
