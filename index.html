@@ -17,14 +17,9 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
     />
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Optional: Chart.js Data Labels -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  </head>
-
+</head>
   <body>
+     
     <!-- =========================
        PAGE HEADER
   ========================== -->
@@ -67,107 +62,188 @@
         Supporting accurate immunization reporting and public health exchange
       </div>
     </header>
+  
 
     <!-- =========================
        MAIN CONTAINER
   ========================== -->
+  
     <div class="container">
-      <!-- =========================
-         LEFT PANE (Filters + Table)
-    ========================== -->
       <div class="left">
-        <!-- Controls Panel -->
-        <div class="controlsPanel">
-          <div
-            style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end"
-          >
-            <div>
-              <label for="fromDate">From</label><br />
-              <input id="fromDate" type="text" placeholder="YYYY-MM-DD" />
-            </div>
+          <div class="controlsPanel compact">
+          <div class="controlsRow singleRow">
 
-            <div>
-              <label for="toDate">To</label><br />
-              <input id="toDate" type="text" placeholder="YYYY-MM-DD" />
-            </div>
+              <div class="controlGroup dateRangeGroup">
+                <label>Vaccine administration date</label>
+                  <div class="dateRangeRow">
+                    <input id="fromDate" type="text" />
+                      <span class="dateLabel">to</span>
+                    <input id="toDate" type="text" />
+                  </div>
+              </div>
 
-            <div>
-              <label for="quickRange">Quick range</label><br />
-              <select id="quickRange">
-                <option value="">Custom</option>
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-              </select>
-            </div>
+              <!-- Quick date range dropdown -->
+              <div class="controlGroup">
+                <label for="quickRange">Date range</label>
+                <select id="quickRange">
+                  <option value="custom">Custom range</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last7">Last 7 days</option>
+                  <option value="last14">Last 14 days</option>
+                  <option value="last30">Last 30 days</option>
+                </select>
+              </div>
 
-            <div>
-              <label for="filterMissing">Filter by missing</label><br />
-              <select id="filterMissing">
-                <option value="all">All records</option>
-                <option value="vfc">Missing VFC</option>
-                <option value="funding">Missing Funding</option>
-                <option value="lot">Missing Lot</option>
-                <option value="ndc">Missing NDC</option>
-                <option value="contact">Missing Contact</option>
-              </select>
-            </div>
-            <div>
-              <label>
-                <input type="checkbox" id="toggleCompletedRows" />
-                Hide Complete Records
-              </label>
-              <label>
-                <input type="checkbox" id="toggleDemographics" />
-                Hide PHI
-              </label>
-            </div>
-            <div>
-              <label>&nbsp;</label><br />
-              <button id="runBtn" class="btn">Run report</button>
-            </div>
+              <!-- Documentation gaps dropdown -->
+              <div class="controlGroup">
+                <label for="filterMissing">Documentation gaps</label>
+                <select id="filterMissing">
+                  <option value="all">All records</option>
+                  <option value="incomplete">Records needing attention</option>
+                  <option value="complete">Records with no immediate risk</option>
+                  <option value="vfc">Missing VFC eligibility</option>
+                  <option value="funding">Missing funding source</option>
+                  <option value="race">Missing race</option>
+          <option value="ethnicity">Missing ethnicity</option>
+                  <option value="contact">Missing patient contact details</option>
+                </select>
+              </div>
 
-            <div>
-              <label>&nbsp;</label><br />
-              <button id="csvBtn" class="btn">Export CSV</button>
-            </div>
+              <!-- View options dropdown -->
+              <div class="controlGroup viewOptions">
+                <label>View</label>
 
-            <label>&nbsp;</label><br />
-            <span style="margin-left: auto" class="pill" id="countPill"
-              >0 records</span
-            >
+                <div class="viewDropdown">
+                  <button
+                    type="button"
+                    class="viewToggle"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                  >
+                    View options ▾
+                  </button>
+
+                  <div class="viewMenu" inert>
+                          <label>
+                            <input type="checkbox" id="toggleCompletedRows" />
+                            Hide records already reviewed
+                          </label>
+
+                          <label>
+                            <input type="checkbox" id="toggleDemographics" />
+                            Hide patient identifiers
+                          </label>
+                        </div>
+
+                </div>
+              </div>
+              <div class="controlGroup">
+  <label for="filterAge">Age</label>
+  <select id="filterAge">
+    <option value="all">All</option>
+    <option value="above18">Adult</option>
+    <option value="belowEqual18">Minor</option>
+  </select>
+</div>
+              <div class="controlsSpacer"></div>
+                  <!-- Right-aligned actions -->
+                  <div class="controlGroup controlActions">
+                      <label aria-hidden="true">&nbsp;</label>
+                        <div class="actionRow">
+                              <a
+                              id="refreshBtn"
+                              href="#"
+                              class="iconCircle iconRefresh"
+                              aria-label="Reset filters and refresh view"
+                              title="Reset filters and refresh view"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="16"
+                                height="16"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="#ffffff"
+                                  d="M17.65 6.35A7.95 7.95 0 0012 4a8 8 0 108 8h-2a6 6 0 11-6-6c1.66 0 3.14.69 4.22 1.78L14 10h6V4l-2.35 2.35z"
+                                />
+                              </svg>
+                            </a>
+                                <a
+                              id="csvBtn"
+                              href="#"
+                              class="excelIconLink"
+                              aria-label="Export records to Excel"
+                              title="Export records to Excel"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="20"
+                                height="20"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="#107C41"
+                                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+                                />
+                                <path
+                                  fill="#185C37"
+                                  d="M14 2v6h6"
+                                />
+                                <path
+                                  fill="#ffffff"
+                                  d="M8.5 10.5l1.6 2.6 1.6-2.6h1.6l-2.4 3.7 2.5 3.8h-1.6l-1.7-2.7-1.7 2.7H7l2.5-3.8-2.4-3.7h1.4z"
+                                />
+                              </svg>
+                            </a>
+
+                          <span id="countPill">
+                            <span class="countValue">0</span> records
+                          </span>
+                        </div>
+                  </div>
+
+
+
           </div>
-        </div>
-
-        <!-- Table Wrapper -->
-        <div class="tableWrapper">
-          <!-- Loader overlay -->
-          <div class="tableLoader" id="tableLoader" aria-hidden="true">
+      </div>
+<div class="tableLoader" id="tableLoader" aria-hidden="true">
             <div class="loaderBox" role="status" aria-live="polite">
               <div class="spinner" aria-hidden="true"></div>
               <div id="loaderText">Running…</div>
             </div>
           </div>
 
+
+        <!-- Table Wrapper -->
+        <div class="tableWrapper">
+          <!-- Loader overlay -->
+          
+
           <!-- Data Table -->
           <table id="tbl">
             <thead>
               <tr>
-                <th>Doc ID</th>
+                <th>Document ID</th>
                 <th>Patient ID</th>
-                <th>Admin Date</th>
-                <th>Vaccine</th>
-                <th>VFC</th>
-                <th>Funding</th>
+                <th>Administered Date</th>
+                <th>Vaccine Name</th>
+                <th>VFC Eligibility</th>
+                <th>Funding Source</th>
                 <th>Qty</th>
                 <th>Units</th>
                 <th>NDC</th>
                 <th>Lot</th>
                 <th>Exp Date</th>
                 <th>Status</th>
+                <th>Race</th>
+                <th>Ethnicity</th>
                 <th class="demographics">Age</th>
                 <th class="demographics">Mobile</th>
                 <th class="demographics">Email</th>
                 <th>Reviewed</th>
+                <th>Timestamp</th>
               </tr>
             </thead>
             <tbody>
@@ -175,19 +251,55 @@
             </tbody>
           </table>
         </div>
-      </div>
+         <!-- Inline Notification for No Data Found -->
+<div id="noDataNotification" class="no-data-notification" style="display:none;">
+  <p>No records found for the selected filters. <button id="resetFiltersBtn">OK</button></p>
+</div>
+      </div>  
 
       <!-- =========================
-         RIGHT PANE (AI Report)
-    ========================== -->
-      <div class="right">
-        <!-- AI Explainable Report -->
-        <div id="aiReport"></div>
+     RIGHT PANE (AI Report)
+========================== -->
+<div class="right">
 
-        <!-- Bar chart -->
-        <canvas id="missingChart"></canvas>
+  <!-- AI Explainable Report -->
+  <div id="aiReport" class="ai-report is-hidden">
+<div class="aiReportHeader">
+    <div class="aiReportTitleText aiReportTitleRow">Report</div>
+</div>
+
+    <!-- Severity strip -->
+    <div class="ai-severity-header">
+      <div
+        id="severityStrip"
+        class="severity-strip"
+        aria-label="Severity distribution"
+      >
+        <div class="severity-segment high" data-severity="high">
+          <span class="label">High Risk</span>
+          <span class="count" id="sevHighCount">0</span>
+        </div>
+        <div class="severity-segment medium" data-severity="medium">
+          <span class="label">Medium Risk</span>
+          <span class="count" id="sevMediumCount">0</span>
+        </div>
+        <div class="severity-segment low" data-severity="low">
+          <span class="label">Low Risk</span>
+          <span class="count" id="sevLowCount">0</span>
+        </div>
+        <div class="severity-segment clean" data-severity="clean">
+          <span class="label">No Risk</span>
+          <span class="count" id="sevCleanCount">0</span>
+        </div>
       </div>
     </div>
+
+    <!-- REQUIRED -->
+    <div id="aiReportContent"></div>
+
+  </div>
+</div>
+
 
     <!-- =========================
        RECORD GUIDANCE MODAL
@@ -203,7 +315,6 @@
       id="welcomeModal"
       class="welcomeOverlay"
       aria-hidden="true"
-      style="display: none"
     >
       <div
         class="welcomeDialog rgModal"
@@ -274,9 +385,7 @@
               <div class="mockRow high">
                 <span class="mockCell doc">IM-10234</span>
                 <span class="mockCell vaccine">High priority</span>
-                <span class="mockCell note"
-                  >VFC Eligibility and Funding Source missing</span
-                >
+                <span class="mockCell note">VFC Eligibility and Funding Source missing</span>
               </div>
 
               <div class="mockRow medium">
@@ -320,18 +429,307 @@
         </div>
       </div>
     </div>
+<!-- =========================
+     START SCREEN MODAL (shown after initial loader, and after Reset)
+========================== -->
+<!-- =========================
+     START SCREEN (FULL-SCREEN ONBOARDING)
+========================== -->
+<div id="startScreenModal" class="startScreenOverlay" aria-hidden="true">
+  <div
+    class="startScreenShell"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="startScreenTitle"
+  >
+    <!-- LEFT: VISUAL / CONTEXT -->
+    <section class="startScreenLeft" aria-hidden="false">
+      <div class="startScreenBrandRow">
+        <div class="startScreenBrandTitle">Immunization Data Quality Review</div>
+        <div class="startScreenBrandTag">Clinical documentation workflow</div>
+      </div>
 
-    <!-- =========================
+      <h1 id="startScreenTitle" class="startScreenHeroTitle">
+        Start your immunization documentation review
+      </h1>
+
+      <p class="startScreenHeroSub">
+        Identify documentation gaps, review risk, and resolve issues in the EHR workflow
+        before they become registry rejections or operational rework.
+      </p>
+
+      <div class="startScreenVisual">
+       <svg
+  viewBox="0 0 900 320"
+  class="startScreenSvg"
+  role="img"
+  aria-label="EHR to registry workflow"
+>
+  <defs>
+    <linearGradient id="ssg" x1="0" x2="1">
+      <stop offset="0" stop-color="#eef2ff"></stop>
+      <stop offset="1" stop-color="#f8fafc"></stop>
+    </linearGradient>
+  </defs>
+
+  <rect
+    x="18"
+    y="18"
+    width="864"
+    height="284"
+    rx="18"
+    fill="url(#ssg)"
+    stroke="#e5e7eb"
+  ></rect>
+
+  <g fill="#ffffff" stroke="#cbd5e1">
+    <rect x="70" y="90" width="160" height="90" rx="14"></rect>
+    <rect x="280" y="90" width="160" height="90" rx="14"></rect>
+    <rect x="490" y="90" width="160" height="90" rx="14"></rect>
+    <rect x="700" y="90" width="160" height="90" rx="14"></rect>
+  </g>
+
+  <!-- TITLES (CENTERED IN EACH BOX) -->
+  <g
+    fill="#0f172a"
+    font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
+    font-size="16"
+    font-weight="700"
+    text-anchor="middle"
+  >
+    <text x="150" y="124">Clinic</text>
+    <text x="360" y="124">EHR</text>
+    <text x="570" y="124">HL7 Engine</text>
+    <text x="780" y="124">Registry</text>
+  </g>
+
+  <!-- SUBTEXT (CENTERED IN EACH BOX) -->
+  <g
+    fill="#475569"
+    font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
+    font-size="12.5"
+    text-anchor="middle"
+  >
+    <text x="150" y="148">Documentation</text>
+    <text x="150" y="166">entered during visit</text>
+
+    <text x="360" y="148">Vaccine order</text>
+    <text x="360" y="166">stored and updated</text>
+
+    <text x="570" y="148">VXU generated</text>
+    <text x="570" y="166">and transmitted</text>
+
+    <text x="780" y="148">ACK returned</text>
+    <text x="780" y="166">with acceptance</text>
+  </g>
+
+  <!-- ARROWS (ALIGNED TO BOX MIDLINE: y=135) -->
+  <g stroke="#64748b" stroke-width="3" stroke-linecap="round" fill="none">
+    <path d="M230 135 H280"></path>
+    <path d="M440 135 H490"></path>
+    <path d="M650 135 H700"></path>
+  </g>
+
+  <!-- ARROWHEADS -->
+  <g fill="#64748b">
+    <path d="M280 135 l-10 -6 v12 z"></path>
+    <path d="M490 135 l-10 -6 v12 z"></path>
+    <path d="M700 135 l-10 -6 v12 z"></path>
+  </g>
+
+  <g
+    fill="#334155"
+    font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
+    font-size="13"
+  >
+    <text x="70" y="255">
+      Goal: fix missing or inconsistent fields in the vaccine order before submission rework occurs.
+    </text>
+  </g>
+</svg>
+
+      </div>
+
+      <div class="startScreenFootnote">
+        Insights are generated only from the selected records. No EHR data is modified.
+      </div>
+    </section>
+
+    <!-- RIGHT: SLIDES + ACTION -->
+    <section class="startScreenRight">
+      <div class="startScreenCard">
+<div class="startScreenCardHeader">
+  <div class="startScreenCardHeaderLeft">
+    <div class="startScreenPills" aria-hidden="true">
+      <span class="startPill" data-pill="0">Identify</span>
+      <span class="startPill" data-pill="1">Review</span>
+      <span class="startPill" data-pill="2">Resolve</span>
+    </div>
+  </div>
+</div>
+
+
+
+        <div class="startScreenSlides" id="startSlides">
+          <div class="startSlide isActive" data-slide="0">
+            <h3 class="startSlideTitle">Identify documentation gaps</h3>
+            <ul class="startSlideList">
+              <li>Find missing VFC eligibility and funding source entries.</li>
+              <li>Spot incomplete demographics that drive ACK errors and rework.</li>
+              <li>Filter by time window and gap type to narrow the queue.</li>
+            </ul>
+          </div>
+
+          <div class="startSlide" data-slide="1">
+            <h3 class="startSlideTitle">Review risk and prioritize</h3>
+            <ul class="startSlideList">
+              <li>Use severity cues to start with high-risk records first.</li>
+              <li>Open record guidance to see what is missing and why it matters.</li>
+              <li>Mark items reviewed after you confirm the correction path.</li>
+            </ul>
+          </div>
+
+          <div class="startSlide" data-slide="2">
+            <h3 class="startSlideTitle">Resolve in the EHR workflow</h3>
+            <ul class="startSlideList">
+              <li>Open the patient chart and the vaccine order in the EHR.</li>
+              <li>Update missing fields, then re-save the order to persist changes.</li>
+              <li>Re-check acceptance readiness and reduce downstream cleanup.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="startScreenNavRow">
+          <button type="button" class="startNavBtn" id="startPrevBtn">Back</button>
+          <div class="startDots" id="startDots" aria-label="Onboarding progress"></div>
+          <button type="button" class="startNavBtn" id="startNextBtn">Next</button>
+        </div>
+
+        <div class="startScreenActions">
+          <button type="button" class="startPrimaryBtn" id="startBeginBtn">
+            Start review
+          </button>
+        </div>
+
+        <div class="startScreenFinePrint">
+          Tip: Use filters first, then open record guidance to update the vaccine order fields in the EHR.
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+
+<!-- =========================
+     TREND ANALYSIS MODAL
+========================== -->
+<div id="trendAnalysisModal" class="trend-analysis-modal" style="display:none;">
+  <div class="modal-content">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h4 id="trendHeaderTitle">Missing Documentation Trends</h4>
+
+      <a href="#" id="closeTrendModal" title="Close" class="modal-close">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+
+      <!-- Context / helper -->
+      <div class="trend-context">
+        
+        <div class="info-bulb">
+          <svg class="bulb-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="#fde047" stroke="#f59e0b" stroke-width="2"></circle>
+            <line x1="12" y1="7" x2="12" y2="13" stroke="#1f2937" stroke-width="2"></line>
+            <circle cx="12" cy="16" r="1.3" fill="#1f2937"></circle>
+            
+          </svg>
+          
+
+          <span class="bulb-text">
+            <small id="trendHeaderSubtitle">
+              AI Insights.
+            </small>
+          </span>
+        </div>
+      </div>
+
+      <!-- Trend Carousel -->
+      <div class="trend-carousel">
+
+        <!-- LEFT ARROW -->
+        <button
+          class="trend-nav trend-nav-left"
+          id="trendPrev"
+          aria-label="Previous view"
+        >
+          ‹
+          <span class="trend-nav-tooltip" id="leftArrowTooltip"></span>
+        </button>
+
+        <!-- VISUAL STAGE -->
+        <div class="trend-stage">
+
+          <!-- STACKED BAR VIEW -->
+          <div class="trend-view is-active" data-view="bar">
+            <div class="trend-chart-card">
+              <!-- ECharts container -->
+              <div id="echartStackedBar" style="width:100%; height:360px;"></div>
+            </div>
+          </div>
+
+          <!-- TREEMAP VIEW -->
+          <div class="trend-view" data-view="treemap">
+
+            <div class="trend-chart-card">
+              <!-- ECharts treemap container -->
+              <div id="echartTreemap" style="width:100%; height:360px;"></div>
+            </div>
+          </div>
+
+          <!-- HEATMAP TABLE (Vaccine × Week × Lot density) -->
+          <div class="trend-view" data-view="lot_table">
+            
+  <div class="trend-chart-card">
+    <div id="lotUsageTable" class="lot-usage-table"></div>
+  </div>
+</div>
+
+
+        </div>
+
+        <!-- RIGHT ARROW -->
+        <button
+          class="trend-nav trend-nav-right"
+          id="trendNext"
+          aria-label="Next view"
+        >
+          ›
+          <span class="trend-nav-tooltip" id="rightArrowTooltip"></span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================
        TOAST CONTAINER
   ========================== -->
-    <div id="toastContainer"></div>
+   <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-    <!-- =========================
-       SCRIPTS
-  ========================== -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="./app.js"></script>
+   
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="./app.js" defer></script>
   </body>
 </html>
-
-
