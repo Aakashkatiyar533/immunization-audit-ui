@@ -3419,7 +3419,7 @@ if (localStorage.getItem(HAS_SEEN_START_SCREEN) !== "true") {
   console.log("[StartScreen] StartScreen skipped (already seen)");
 }
 
-fetch("immunization_data.json")
+fetch("./immunization_data.json")
   .then((res) => res.json())
   .then((data) => {
     const quickRangeEl = document.getElementById("quickRange");
@@ -3826,3 +3826,4 @@ ${possibleTypo ? "⚠ Possible lot typo (single or inconsistent usage)" : ""}
     weekList.length
   );
 }
+
