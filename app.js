@@ -44,7 +44,21 @@ let lotColorMap = {};
 /* =========================
    Guidance + Scoring
 ========================= */
-const HAS_SEEN_START_SCREEN = "hasSeenStartScreen";
+const HAS_SEEN_START_SCREEN = "HAS_SEEN_START_SCREEN";
+
+function hasSeenStartScreenThisSession() {
+  return sessionStorage.getItem(HAS_SEEN_START_SCREEN) === "1";
+}
+
+function markStartScreenSeenThisSession() {
+  sessionStorage.setItem(HAS_SEEN_START_SCREEN, "1");
+}
+function maybeOpenStartScreen() {
+  if (!hasSeenStartScreenThisSession()) {
+    openStartScreenModal();
+  }
+}
+
 const FIELD_GUIDANCE = {
   ndc: {
     label: "NDC",
@@ -138,11 +152,12 @@ const TREND_VIEW_EXPLANATIONS = {
     `,
   },
 
-  lot_table: {
-    title: "Weekly vaccine lot usage",
+  vfc_waterfall: {
+    title: "VFC eligibility breakdown",
     text: `
-      Rows show vaccine lot numbers and columns represent weeks.
-      Isolated or one-time entries may indicate data entry errors.
+      This waterfall summarizes VFC eligibility documentation across the selected records.
+      It shows the total volume and how records distribute by eligibility type.
+      Use it to quickly spot missing eligibility entries and outliers by category.
     `,
   },
 };
@@ -298,35 +313,34 @@ function csvEscape(v) {
 
 function openStartScreenModal() {
   const modal = document.getElementById("startScreenModal");
-  if (!modal) {
-    console.warn("[StartScreen] modal not found");
-    return;
-  }
+  if (!modal) return;
 
-  console.log("[StartScreen] opening modal");
+  console.log("[StartScreen] OPEN");
 
-  // Ensure it can render even if CSS or inline HTML has display:none
   modal.style.display = "flex";
-  console.log(
-    "[StartScreen] computed display =",
-    getComputedStyle(modal).display
-  );
-
-  // Visual state
-  modal.classList.remove("isClosing");
-  modal.classList.add("isOpen");
   modal.setAttribute("aria-hidden", "false");
-
-  // Backdrop blur state
   document.body.classList.add("startScreenActive");
 
-  // Focus a safe control inside the modal (prevents ARIA focus warnings later)
-  const focusTarget = modal.querySelector(
-    "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
-  );
-  if (focusTarget) focusTarget.focus();
-  initStartScreenCarousel();
+  // Init carousel once (if you use it)
+  if (typeof initStartScreenCarousel === "function") {
+    initStartScreenCarousel();
+  }
+
+  requestAnimationFrame(() => {
+    modal.classList.remove("isClosing");
+    modal.classList.add("isOpen");
+
+    // ✅ Force focus into the modal so keyboard events behave predictably
+    const shell = modal.querySelector(".startScreenShell") || modal;
+    shell.setAttribute("tabindex", "-1");
+    shell.focus({ preventScroll: true });
+
+    // Optional: make Enter feel immediate on first load
+    const beginBtn = document.getElementById("startBeginBtn");
+    if (beginBtn) beginBtn.focus({ preventScroll: true });
+  });
 }
+
 function initStartScreenCarousel() {
   const modal = document.getElementById("startScreenModal");
   if (!modal) return;
@@ -497,8 +511,9 @@ function closeStartScreenModal() {
   console.log("[StartScreen] CLOSE");
 
   // Mark as seen on any dismissal (X, continue, lets go, etc.)
+  // Mark as seen for this browser session (tab session)
   try {
-    localStorage.setItem(HAS_SEEN_START_SCREEN, "true");
+    markStartScreenSeenThisSession(); // sets "1"
   } catch (e) {
     // ignore storage errors
   }
@@ -535,7 +550,6 @@ function hashStringToInt(str) {
   }
   return h >>> 0;
 }
-
 function seededPick(list, seedInt) {
   if (!list || !list.length) return "";
   const idx = seedInt % list.length;
@@ -593,13 +607,19 @@ function wireRealtimeFilters() {
   }
 
   // Date-driven filters
+  // Date-driven filters
   ["fromDate", "toDate", "quickRange"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener("change", () => {
-        applyDateFilters();
-      });
-    }
+    if (!el) return;
+
+    el.addEventListener("change", () => {
+      // If user changed dates manually and range > 30, set dropdown to Custom Range
+      if (id === "fromDate" || id === "toDate") {
+        syncQuickRangeToCustomIfOver30();
+      }
+
+      applyDateFilters();
+    });
   });
 }
 function wireViewOptionsDropdown() {
@@ -712,6 +732,46 @@ function forceSelectValue(selectEl, value) {
   // Force repaint
   selectEl.blur();
   selectEl.focus();
+}
+function parseYMD(s) {
+  // input is "YYYY-MM-DD" from flatpickr
+  const m = String(s || "")
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  const dt = new Date(y, mo, d);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function diffDaysInclusive(a, b) {
+  const ms = 24 * 60 * 60 * 1000;
+  const start = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+  return Math.floor((end - start) / ms) + 1;
+}
+
+function syncQuickRangeToCustomIfOver30() {
+  const fromEl = document.getElementById("fromDate");
+  const toEl = document.getElementById("toDate");
+  const quickRange = document.getElementById("quickRange");
+  if (!fromEl || !toEl || !quickRange) return;
+
+  const from = parseYMD(fromEl.value);
+  const to = parseYMD(toEl.value);
+  if (!from || !to) return;
+
+  const start = from <= to ? from : to;
+  const end = from <= to ? to : from;
+
+  const days = diffDaysInclusive(start, end);
+
+  // Only force when MORE than 30 days
+  if (days > 30) {
+    forceSelectValue(quickRange, "custom");
+  }
 }
 
 /* =========================
@@ -835,6 +895,7 @@ function applyCompletedRowsToggle() {
 
   displayRecords = rows;
   renderTable(displayRecords);
+  updateDQScoreBadge(displayRecords);
   updateSeverityStrip();
   updateCounts();
 }
@@ -854,9 +915,9 @@ function disableHighlightByUI() {
 function applyAllFiltersRealtime() {
   console.log("[applyAllFiltersRealtime] started");
 
-  showUpdatingLoader(); // Show the loader while applying filters
+  showUpdatingLoader();
 
-  let rows = filteredRecords.slice(); // Start with filteredRecords
+  let rows = filteredRecords.slice();
 
   // Missing documentation filter
   const missing = document.getElementById("filterMissing")?.value || "all";
@@ -888,20 +949,24 @@ function applyAllFiltersRealtime() {
     });
   }
 
-  // Apply completed toggle, render table, AI, etc.
+  // Set the new display set
   displayRecords = rows;
 
-  applyCompletedRowsToggle(); // Hide reviewed rows if toggle active
-  autoRunAI(); // Trigger AI summary
+  // Apply hide-reviewed toggle + render table (this will also update badge, if you applied step #1)
+  applyCompletedRowsToggle();
 
+  // ✅ If table is empty, ensure badge resets even if AI does not run
   if (displayRecords.length === 0) {
     showNoDataNotification();
+    updateDQScoreBadge([]); // reset to "--"
   } else {
     hideNoDataNotification();
-    renderTable(displayRecords);
-    updateSeverityStrip();
-    updateCounts();
+    // run AI only when there is data
+    autoRunAI();
   }
+
+  updateSeverityStrip();
+  updateCounts();
 }
 
 function showNoDataNotification() {
@@ -973,11 +1038,10 @@ function loadDataWithFilters() {
 }
 
 function fetchDataAndRender() {
-  // Placeholder for fetching data logic, use an API or mock data
   console.log("[fetchDataAndRender] Fetching data...");
 
-  // After data is fetched, render the table and update other UI elements
   renderTable(displayRecords);
+  updateDQScoreBadge(displayRecords); // ✅ add this
   updateSeverityStrip();
   updateCounts();
 }
@@ -1319,16 +1383,58 @@ function getRecordSeverity(rec) {
    - Keeps cells blank when value is missing
    - Keeps header order aligned with current index.html
 ========================= */
+// Add once (anywhere above renderTable)
+function parseAdminDate(value) {
+  if (!value) return null;
+
+  const s = String(value).trim();
+
+  // ISO / YYYY-MM-DD / YYYY-MM-DDTHH:mm:ss...
+  const d1 = new Date(s);
+  if (!Number.isNaN(d1.getTime())) return d1;
+
+  // MM/DD/YYYY fallback (if your data ever comes like this)
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const mm = Number(m[1]);
+    const dd = Number(m[2]);
+    const yy = Number(m[3]);
+    const d2 = new Date(yy, mm - 1, dd);
+    if (!Number.isNaN(d2.getTime())) return d2;
+  }
+
+  return null;
+}
+
 function renderTable(rows) {
   const tbody = document.querySelector("#tbl tbody");
   if (!tbody) return;
+
+  // ✅ Always render newest administered_date first
+  const sortedRows = (Array.isArray(rows) ? rows : []).slice().sort((a, b) => {
+    const da = parseAdminDate(a?.administered_date);
+    const db = parseAdminDate(b?.administered_date);
+
+    // Valid dates first, newest first
+    if (da && db) return db - da;
+    if (db) return 1;
+    if (da) return -1;
+
+    // Both invalid or missing date: stable fallback by doc_id descending
+    const aid = String(a?.doc_id ?? "");
+    const bid = String(b?.doc_id ?? "");
+    const an = Number(aid);
+    const bn = Number(bid);
+    if (Number.isFinite(an) && Number.isFinite(bn)) return bn - an;
+    return bid.localeCompare(aid);
+  });
 
   tbody.innerHTML = "";
 
   const fragment = document.createDocumentFragment();
 
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
+  for (let i = 0; i < sortedRows.length; i++) {
+    const r = sortedRows[i];
     const tr = document.createElement("tr");
     const severity = getSeverity(r);
 
@@ -1341,17 +1447,21 @@ function renderTable(rows) {
     // Reviewed state
     if (isReviewed(r.doc_id)) tr.classList.add("resolved");
 
-    // Get the reviewed timestamp
+    // Timestamp
     const timestamp = getReviewedTimestamp(r.doc_id);
     const formattedTimestamp = timestamp
-      ? `${escapeHtml(new Date(timestamp).toLocaleString())}`
+      ? escapeHtml(new Date(timestamp).toLocaleString())
       : "-";
+
+    const docIdSafe = escapeHtml(r.doc_id);
+
+    // Checkbox states
+    const isComplete = isRecordComplete(r);
+    const isChecked = isComplete || isReviewed(r.doc_id);
 
     tr.innerHTML = `
       <td>
-        <a href="#" class="docLink" data-doc="${escapeHtml(
-          r.doc_id
-        )}">${escapeHtml(r.doc_id)}</a>
+        <a href="#" class="docLink" data-doc="${docIdSafe}">${docIdSafe}</a>
       </td>
       <td>${escapeHtml(r.patient_id)}</td>
       <td>${escapeHtml(r.administered_date)}</td>
@@ -1369,21 +1479,19 @@ function renderTable(rows) {
       <td class="demographics">${escapeHtml(r.age || "")}</td>
       <td class="demographics">${escapeHtml(r.mobile || "-")}</td>
       <td class="demographics">${escapeHtml(r.email || "-")}</td>
+
       <td style="text-align:center;">
         <input
           type="checkbox"
           class="resolvedToggle"
-          data-doc="${escapeHtml(r.doc_id)}"
-          ${
-            isRecordComplete(r)
-              ? "checked disabled"
-              : isReviewed(r.doc_id)
-              ? "checked"
-              : ""
-          }
+          data-doc="${docIdSafe}"
+          aria-label="Mark record ${docIdSafe} as reviewed"
+          ${isChecked ? "checked" : ""}
+          ${isComplete ? "disabled" : ""}
         />
       </td>
-      <td>${formattedTimestamp}</td> <!-- Add Timestamp -->
+
+      <td class="reviewedTimestamp" data-doc="${docIdSafe}">${formattedTimestamp}</td>
     `;
 
     fragment.appendChild(tr);
@@ -1428,6 +1536,78 @@ function showAIPlaceholder() {
   `;
 
   updateSeverityStrip();
+}
+function computeDataQualityScore(records) {
+  const data = Array.isArray(records) ? records : [];
+  const n = data.length;
+  if (!n) return 0;
+
+  const missing = (r, key) => !r[key] || !String(r[key]).trim();
+
+  // weights sum to 100
+  const weights = {
+    vfc_status: 28,
+    funding_source: 24,
+    race: 14,
+    ethnicity: 14,
+    contact: 20, // email OR mobile missing
+  };
+
+  let penalty = 0;
+
+  penalty +=
+    (weights.vfc_status * data.filter((r) => missing(r, "vfc_status")).length) /
+    n;
+
+  penalty +=
+    (weights.funding_source *
+      data.filter((r) => missing(r, "funding_source")).length) /
+    n;
+
+  penalty += (weights.race * data.filter((r) => missing(r, "race")).length) / n;
+
+  penalty +=
+    (weights.ethnicity * data.filter((r) => missing(r, "ethnicity")).length) /
+    n;
+
+  penalty +=
+    (weights.contact *
+      data.filter((r) => missing(r, "email") || missing(r, "mobile")).length) /
+    n;
+
+  let score = Math.round(100 - penalty);
+  score = Math.max(0, Math.min(100, score));
+  return score;
+}
+
+function updateDQScoreBadge(records) {
+  const badge = document.getElementById("dqScoreBadge");
+  const valueEl = document.getElementById("dqScoreValue");
+  if (!badge || !valueEl) return;
+
+  const data = Array.isArray(records) ? records : [];
+  const n = data.length;
+
+  // Always clear state first
+  badge.classList.remove("isExcellent", "isGood", "isWarn", "isBad");
+
+  // ✅ Reset when there is no data
+  if (n === 0) {
+    valueEl.textContent = "--";
+    // Optional: show a neutral look (uncomment if you want)
+    // badge.classList.add("isWarn"); // or create a neutral class
+    badge.setAttribute("aria-label", "Data Quality score not available");
+    return;
+  }
+
+  const score = computeDataQualityScore(data);
+  valueEl.textContent = String(score);
+  badge.setAttribute("aria-label", `Data Quality score ${score} percent`);
+
+  if (score >= 90) badge.classList.add("isExcellent");
+  else if (score >= 85) badge.classList.add("isGood");
+  else if (score >= 50) badge.classList.add("isWarn");
+  else badge.classList.add("isBad");
 }
 
 function runExplainableAI(records, from, to) {
@@ -1576,20 +1756,23 @@ function runExplainableAI(records, from, to) {
 
           <div class="collapsible-content" id="lotInventoryContent">
             <div class="ai-table-wrapper">
-              <table class="ai-table lot-inventory-table">
-                <thead>
-                  <tr>
-                    <th>Vaccine</th>
-                    <th>Lot number</th>
-                    <th>Records</th>
-                    <th>First seen</th>
-                    <th>Last seen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${buildVaccineLotTableRows(records)}
-                </tbody>
-              </table>
+              <div class="ai-table-scroll">
+  <table class="ai-table lot-inventory-table">
+    <thead>
+      <tr>
+        <th>Vaccine</th>
+        <th>Lot number</th>
+        <th>Records</th>
+        <th>First seen</th>
+        <th>Last seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${buildVaccineLotTableRows(records)}
+    </tbody>
+  </table>
+</div>
+
             </div>
           </div>
         </div>
@@ -1706,11 +1889,14 @@ function runExplainableAI(records, from, to) {
       modal.style.display = "flex";
 
       requestAnimationFrame(() => {
-        renderTrendView(TREND_VIEWS.BAR, records);
+        // let layout happen
+        setTimeout(() => {
+          renderTrendView(TREND_VIEWS.BAR, records);
+        }, 0);
       });
     };
   }
-
+  updateDQScoreBadge(records);
   updateSeverityStrip();
 }
 function renderDocumentationGapsAnimated(summary, delay = 450) {
@@ -1778,18 +1964,83 @@ function buildVaccineLotTableRows(records) {
     return `<tr><td colspan="5">No lot data available</td></tr>`;
   }
 
+  // Normalize for typo detection (compare-lens, not display)
+  const normLot = (s) =>
+    String(s || "")
+      .toUpperCase()
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/[^A-Z0-9]/g, ""); // remove dashes etc.
+
+  // Small typo distance check (fast, limited)
+  // Returns true if a and b are "very close" (1 edit away) or a common O/0/C confusion.
+  function isNearTypo(aRaw, bRaw) {
+    const a = normLot(aRaw);
+    const b = normLot(bRaw);
+    if (!a || !b) return false;
+    if (a === b) return false;
+
+    // Common confusion: treat O and 0 as same, and optionally C as close to O
+    const soften = (x) => x.replace(/0/g, "O");
+    const aSoft = soften(a);
+    const bSoft = soften(b);
+    if (aSoft === bSoft) return true;
+
+    // If equal length, allow a small number of mismatched positions
+    if (a.length === b.length) {
+      let mismatches = 0;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+          // treat O vs C as "near"
+          const pair = a[i] + b[i];
+          const near = pair === "OC" || pair === "CO";
+          if (!near) mismatches += 1;
+          else mismatches += 1; // still a mismatch but acceptable if only 1 total
+          if (mismatches > 1) return false;
+        }
+      }
+      return mismatches === 1;
+    }
+
+    // If length differs by 1, allow one insertion/deletion
+    if (Math.abs(a.length - b.length) === 1) {
+      let i = 0;
+      let j = 0;
+      let edits = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) {
+          i += 1;
+          j += 1;
+        } else {
+          edits += 1;
+          if (edits > 1) return false;
+          if (a.length > b.length) i += 1;
+          else j += 1;
+        }
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   const map = {};
+  const vaccineTotals = {}; // vaccine -> total administrations
+  const vaccineLotCounts = {}; // vaccine -> { lot -> count }
 
   records.forEach((r) => {
     if (!r.vaccine_name || !r.lot_number || !r.administered_date) return;
 
-    const key = `${r.vaccine_name}||${r.lot_number}`;
-    const date = r.administered_date;
+    const vaccine = String(r.vaccine_name).trim();
+    const lot = String(r.lot_number).trim();
+    const date = String(r.administered_date);
+
+    const key = `${vaccine}||${lot}`;
 
     if (!map[key]) {
       map[key] = {
-        vaccine: r.vaccine_name,
-        lot: r.lot_number,
+        vaccine,
+        lot,
         count: 0,
         first: date,
         last: date,
@@ -1797,29 +2048,77 @@ function buildVaccineLotTableRows(records) {
     }
 
     map[key].count += 1;
+
+    // Safe for YYYY-MM-DD, but keep as string compare only if stable ISO format
     map[key].first = map[key].first < date ? map[key].first : date;
     map[key].last = map[key].last > date ? map[key].last : date;
+
+    vaccineTotals[vaccine] = (vaccineTotals[vaccine] || 0) + 1;
+
+    if (!vaccineLotCounts[vaccine]) vaccineLotCounts[vaccine] = {};
+    vaccineLotCounts[vaccine][lot] = (vaccineLotCounts[vaccine][lot] || 0) + 1;
   });
 
+  // Find dominant lot per vaccine (the one used most)
+  const dominantLotByVaccine = {};
+  Object.keys(vaccineLotCounts).forEach((vaccine) => {
+    const lots = vaccineLotCounts[vaccine];
+    let bestLot = null;
+    let bestCount = -1;
+    Object.keys(lots).forEach((lot) => {
+      const c = lots[lot];
+      if (c > bestCount) {
+        bestCount = c;
+        bestLot = lot;
+      }
+    });
+    dominantLotByVaccine[vaccine] = { lot: bestLot, count: bestCount };
+  });
+
+  // Render rows: add “rare” and “typo” flags
   return Object.values(map)
     .sort((a, b) => b.count - a.count)
     .map((row) => {
-      const oneOff = row.count === 1;
+      const vaccineTotal = vaccineTotals[row.vaccine] || 1;
+      const dominant = dominantLotByVaccine[row.vaccine]?.lot || "";
+      const dominantCount = dominantLotByVaccine[row.vaccine]?.count || 0;
+
+      const share = row.count / vaccineTotal;
+
+      // Heuristics
+      const isOneOff = row.count === 1;
+      const isRare = row.count <= 3 || share < 0.02; // small share or low count
+      const looksLikeTypo =
+        row.lot !== dominant &&
+        dominantCount >= 10 && // only compare if there is a meaningful dominant
+        isNearTypo(row.lot, dominant);
+
+      let flagHtml = "";
+      let rowClass = "";
+
+      if (looksLikeTypo) {
+        rowClass = "lot-typo";
+        flagHtml = `<span class="why-flagged" title="Likely typo. Very close to dominant lot for this vaccine: ${escapeHtml(
+          dominant
+        )}.">ⓘ</span>`;
+      } else if (isOneOff) {
+        rowClass = "lot-one-off";
+        flagHtml = `<span class="why-flagged" title="Used only once. Possible typo or incorrect lot selection.">ⓘ</span>`;
+      } else if (isRare) {
+        rowClass = "lot-rare";
+        flagHtml = `<span class="why-flagged" title="Rare lot usage for this vaccine. Review for inventory switch or entry mistake.">ⓘ</span>`;
+      }
 
       return `
-        <tr class="${oneOff ? "lot-one-off" : ""}">
+        <tr class="${rowClass}">
           <td>${escapeHtml(row.vaccine)}</td>
           <td>${escapeHtml(row.lot)}</td>
           <td>
             ${row.count}
-            ${
-              oneOff
-                ? `<span class="why-flagged" title="Used only once. Possible typo or incorrect lot selection.">ⓘ</span>`
-                : ""
-            }
+            ${flagHtml}
           </td>
-          <td>${row.first}</td>
-          <td>${row.last}</td>
+          <td>${escapeHtml(row.first)}</td>
+          <td>${escapeHtml(row.last)}</td>
         </tr>
       `;
     })
@@ -2182,6 +2481,50 @@ function buildOverviewInsight({ total, from, to, summary, records }) {
   if (layoutPick === 1) return layoutB;
   return layoutC;
 }
+function buildVfcWaterfallInsight(records) {
+  const total = Array.isArray(records) ? records.length : 0;
+  if (!total) {
+    return "<b>VFC eligibility waterfall.</b><br/>No records available for this view.";
+  }
+
+  let missing = 0;
+  const counts = new Map();
+
+  for (const r of records) {
+    const v = String(r?.vfc_status ?? "").trim();
+    if (!v) {
+      missing += 1;
+      continue;
+    }
+    counts.set(v, (counts.get(v) || 0) + 1);
+  }
+
+  const top = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  const documented = total - missing;
+  const pct = (n) => Math.round((n / total) * 100);
+
+  const topLine = top.length
+    ? top.map(([k, v]) => `${escapeHtml(k)} (${v})`).join(", ")
+    : "No eligibility types recorded.";
+
+  const actionLine =
+    missing > 0
+      ? "Action: open the patient chart, open the vaccine order, document the VFC eligibility, and re-save the order."
+      : "VFC eligibility appears fully documented for this selection.";
+
+  return `
+    <b>VFC eligibility distribution.</b><br/>
+    Total records: <b>${total}</b>.<br/>
+    Documented: <b>${documented}</b> (${pct(
+    documented
+  )}%). Missing: <b>${missing}</b> (${pct(missing)}%).<br/>
+    Top eligibility types: ${topLine}.<br/>
+    ${escapeHtml(actionLine)}
+  `;
+}
 
 function getRiskLevel(summary) {
   const highRisk = summary.vfc + summary.funding;
@@ -2219,16 +2562,23 @@ function updateInsightForView(view) {
 
   if (view === TREND_VIEWS.BAR) {
     suffix =
-      " The stacked bar view highlights how these gaps change over time.";
+      " The stacked bar view shows how documentation gaps move over time by date.";
   } else if (view === TREND_VIEWS.TREEMAP) {
     suffix =
-      " The treemap emphasizes which documentation gaps contribute most to overall risk.";
-  } else if (view === TREND_VIEWS.LOT_TABLE) {
+      " The treemap helps you see which gap categories drive the most risk in this selection.";
+  } else if (TREND_VIEWS.VFC_WATERFALL && view === TREND_VIEWS.VFC_WATERFALL) {
     suffix =
-      " The table below helps identify unusual vaccine lot usage patterns.";
+      " The VFC waterfall summarizes total volume and the breakdown by eligibility type, making missing eligibility easier to spot.";
   }
 
-  el.innerHTML += `<span class="ai-view-hint">${suffix}</span>`;
+  // Avoid stacking duplicate hints if called multiple times
+  const existing = el.querySelector(".ai-view-hint");
+  if (existing) existing.remove();
+
+  el.insertAdjacentHTML(
+    "beforeend",
+    `<span class="ai-view-hint">${suffix}</span>`
+  );
 }
 
 /* =========================
@@ -2780,13 +3130,13 @@ function autoRunAI() {
 const TREND_VIEWS = {
   BAR: "bar",
   TREEMAP: "treemap",
-  LOT_TABLE: "lot_table",
+  VFC_WATERFALL: "vfc_waterfall",
 };
 
 const TREND_VIEW_ORDER = [
   TREND_VIEWS.BAR,
   TREND_VIEWS.TREEMAP,
-  TREND_VIEWS.LOT_TABLE,
+  TREND_VIEWS.VFC_WATERFALL,
 ];
 
 let currentTrendView = TREND_VIEWS.BAR;
@@ -2850,34 +3200,35 @@ function updateTrendNavigation() {
 
   console.log("[TrendNav] view:", currentTrendView, "index:", idx);
 
-  // --- Show / hide arrows ---
+  // Show / hide arrows
   leftBtn.hidden = idx <= 0;
   rightBtn.hidden = idx >= TREND_VIEW_ORDER.length - 1;
 
-  // --- Reset tooltips ---
+  // Reset tooltips
   if (leftTip) leftTip.textContent = "";
   if (rightTip) rightTip.textContent = "";
 
-  // --- LEFT tooltip ---
-  if (idx > 0 && leftTip) {
-    const prev = TREND_VIEW_ORDER[idx - 1];
+  // Helper for labels
+  const labelFor = (v) => {
+    if (v === TREND_VIEWS.BAR) return "Bar chart";
+    if (v === TREND_VIEWS.TREEMAP) return "Treemap";
 
-    if (prev === TREND_VIEWS.BAR) {
-      leftTip.textContent = "Bar chart";
-    } else if (prev === TREND_VIEWS.TREEMAP) {
-      leftTip.textContent = "Treemap";
+    // New view name (preferred)
+    if (TREND_VIEWS.VFC_WATERFALL && v === TREND_VIEWS.VFC_WATERFALL) {
+      return "VFC eligibility waterfall";
     }
+
+    return "";
+  };
+
+  // Left tooltip
+  if (idx > 0 && leftTip) {
+    leftTip.textContent = labelFor(TREND_VIEW_ORDER[idx - 1]);
   }
 
-  // --- RIGHT tooltip ---
+  // Right tooltip
   if (idx < TREND_VIEW_ORDER.length - 1 && rightTip) {
-    const next = TREND_VIEW_ORDER[idx + 1];
-
-    if (next === TREND_VIEWS.TREEMAP) {
-      rightTip.textContent = "Treemap";
-    } else if (next === TREND_VIEWS.LOT_TABLE) {
-      rightTip.textContent = "Lot usage";
-    }
+    rightTip.textContent = labelFor(TREND_VIEW_ORDER[idx + 1]);
   }
 }
 
@@ -2889,19 +3240,30 @@ function renderTrendView(view, records) {
   updateTrendHeader(view);
   updateTrendInfoBulb(view, records);
 
+  const data = Array.isArray(records) ? records : [];
+
   requestAnimationFrame(() => {
     if (view === TREND_VIEWS.BAR) {
-      renderStackedBarEChart("echartStackedBar", records);
+      renderStackedBarEChart("echartStackedBar", data);
+      updateTrendNavigation();
+      return;
     }
-    if (view === TREND_VIEWS.TREEMAP) {
-      renderTreemapEChart("echartTreemap", records);
-    }
-    if (view === TREND_VIEWS.LOT_TABLE) {
-      renderWeeklyLotUsageTable(records);
-    }
-  });
 
-  updateTrendNavigation();
+    if (view === TREND_VIEWS.TREEMAP) {
+      renderTreemapEChart("echartTreemap", data);
+      updateTrendNavigation();
+      return;
+    }
+
+    // Preferred new constant
+    if (TREND_VIEWS.VFC_WATERFALL && view === TREND_VIEWS.VFC_WATERFALL) {
+      renderVfcEligibilityWaterfallEChart("echartVfcWaterfall", data);
+      updateTrendNavigation();
+      return;
+    }
+
+    updateTrendNavigation();
+  });
 }
 
 function updateTrendInfoBulb(view, records) {
@@ -2915,8 +3277,8 @@ function updateTrendInfoBulb(view, records) {
     html = buildBarInsight(data);
   } else if (view === TREND_VIEWS.TREEMAP) {
     html = buildTreemapInsight(data);
-  } else if (view === TREND_VIEWS.LOT_TABLE) {
-    html = buildLotTableInsight(data);
+  } else if (TREND_VIEWS.VFC_WATERFALL && view === TREND_VIEWS.VFC_WATERFALL) {
+    html = buildVfcWaterfallInsight(data);
   }
 
   bulb.__setFullExplanation(html);
@@ -2961,36 +3323,36 @@ function buildBarInsight(records) {
 
 function buildLotTableInsight(records) {
   const counts = {};
-  const weeksByLot = {};
+  const weeksByKey = {};
 
   records.forEach((r) => {
-    if (!r.lot_number || !r.administered_date) return;
+    if (!r.vaccine_name || !r.lot_number || !r.administered_date) return;
 
-    const lot = r.lot_number.trim();
+    const vaccine = String(r.vaccine_name).trim();
+    const lot = String(r.lot_number).trim();
     const week = getWeekLabel(r.administered_date);
 
-    counts[lot] = (counts[lot] || 0) + 1;
+    const key = `${vaccine}||${lot}`;
 
-    if (!weeksByLot[lot]) weeksByLot[lot] = new Set();
-    weeksByLot[lot].add(week);
+    counts[key] = (counts[key] || 0) + 1;
+
+    if (!weeksByKey[key]) weeksByKey[key] = new Set();
+    weeksByKey[key].add(week);
   });
 
-  const oneOffLots = Object.entries(counts)
-    .filter(([, v]) => v === 1)
-    .map(([lot]) => lot);
-
-  const singleWeekLots = Object.entries(weeksByLot).filter(
+  const oneOff = Object.entries(counts).filter(([, v]) => v === 1).length;
+  const singleWeek = Object.entries(weeksByKey).filter(
     ([, weeks]) => weeks.size === 1
   ).length;
 
   return `
     <b>Lot usage quality check.</b><br/>
-    ${oneOffLots.length} lot numbers appear only once.
-    ${singleWeekLots} lots appear in only a single week.
+    ${oneOff} vaccine-lot pairs appear only once.<br/>
+    ${singleWeek} vaccine-lot pairs appear in only a single week.
     <ul>
       <li>One-time or short-lived lots often indicate manual entry errors</li>
       <li>Consistent lots across weeks suggest normal inventory usage</li>
-      <li>Review lots with sudden appearance or disappearance</li>
+      <li>Review lots that are rare or visually similar to the dominant lot</li>
     </ul>
   `;
 }
@@ -3048,7 +3410,10 @@ function openTrendModal(records) {
   modal.style.display = "flex";
 
   requestAnimationFrame(() => {
-    renderTrendView(TREND_VIEWS.BAR, records);
+    // let layout happen
+    setTimeout(() => {
+      renderTrendView(TREND_VIEWS.BAR, records);
+    }, 0);
   });
 }
 
@@ -3102,6 +3467,51 @@ function wireUI() {
     "[StartScreen] DOM check:",
     document.getElementById("startScreenModal")
   );
+  /* =========================
+     START SCREEN: ENTER = "Let Begin!"
+     Uses document-level capture so it works even when focus is not inside modal.
+  ========================== */
+
+  if (!window.__startScreenEnterBound) {
+    window.__startScreenEnterBound = true;
+
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key !== "Enter") return;
+
+        const startModal = document.getElementById("startScreenModal");
+        if (!startModal) return;
+
+        const isOpen =
+          startModal.classList.contains("isOpen") &&
+          startModal.getAttribute("aria-hidden") !== "true" &&
+          startModal.style.display !== "none";
+
+        if (!isOpen) return;
+
+        // Do not hijack Enter inside inputs, textareas, selects, or contenteditable
+        const target = e.target;
+        const tag =
+          target && target.tagName ? target.tagName.toUpperCase() : "";
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (target && target.isContentEditable) return;
+
+        // If user is on Back or Next, allow normal behavior
+        const onNavButton =
+          target &&
+          (target.id === "startPrevBtn" || target.id === "startNextBtn");
+        if (onNavButton) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const btn = document.getElementById("startBeginBtn");
+        if (btn) btn.click();
+      },
+      true // capture
+    );
+  }
 
   /* =========================
      HELP / START SCREEN
@@ -3113,12 +3523,19 @@ function wireUI() {
       openWelcomeModal();
     });
   }
+  // Home button opens the start screen modal on demand
+  const homeBtn = document.getElementById("homeBtn");
+  if (homeBtn) {
+    homeBtn.addEventListener("click", function () {
+      openStartScreenModal();
+    });
+  }
 
   const startBeginBtn = document.getElementById("startBeginBtn");
   if (startBeginBtn) {
     startBeginBtn.addEventListener("click", () => {
       console.log("[StartScreen] user started review");
-
+      markStartScreenSeenThisSession();
       closeStartScreenModal();
 
       showLoader("Preparing immunization documentation review…");
@@ -3129,6 +3546,7 @@ function wireUI() {
   const startHowToBtn = document.getElementById("startHowToBtn");
   if (startHowToBtn) {
     startHowToBtn.addEventListener("click", () => {
+      markStartScreenSeenThisSession();
       closeStartScreenModal();
       openWelcomeModal();
     });
@@ -3147,6 +3565,7 @@ function wireUI() {
   const openHelpFromStart = document.getElementById("openHelpFromStartBtn");
   if (openHelpFromStart) {
     openHelpFromStart.addEventListener("click", () => {
+      markStartScreenSeenThisSession();
       closeStartScreenModal();
       openWelcomeModal();
     });
@@ -3410,16 +3829,8 @@ function hideWelcomeLoaderSafely() {
     hideLoader();
   }, remaining);
 }
-if (localStorage.getItem(HAS_SEEN_START_SCREEN) !== "true") {
-  console.log(
-    "[StartScreen] showing StartScreen (first visit in this browser)"
-  );
-  openStartScreenModal();
-} else {
-  console.log("[StartScreen] StartScreen skipped (already seen)");
-}
 
-fetch("./immunization_data.json")
+fetch("immunization_data.json")
   .then((res) => res.json())
   .then((data) => {
     const quickRangeEl = document.getElementById("quickRange");
@@ -3432,7 +3843,7 @@ fetch("./immunization_data.json")
     // Render initial table (optional: show all or keep empty)
     applyCompletedRowsToggle();
     updateCounts();
-
+    maybeOpenStartScreen();
     // Wire handlers
     wireUI();
     wireRealtimeFilters();
@@ -3514,13 +3925,13 @@ function updateTrendHeader(view) {
     titleEl.textContent = "Missing Documentation Trends";
   } else if (view === TREND_VIEWS.TREEMAP) {
     titleEl.textContent = "Documentation Gap Concentration";
-  } else if (view === TREND_VIEWS.LOT_TABLE) {
-    titleEl.textContent = "Weekly Vaccine Lot Usage";
+  } else if (TREND_VIEWS.VFC_WATERFALL && view === TREND_VIEWS.VFC_WATERFALL) {
+    titleEl.textContent = "VFC Eligibility Breakdown";
   } else {
     titleEl.textContent = "Graph Insights";
   }
 
-  // 🔒 Subtitle is always neutral until bulb click
+  // Subtitle stays neutral until bulb click
   subtitleEl.textContent = "Graph Insights.";
 }
 
@@ -3539,6 +3950,10 @@ function renderStackedBarEChart(containerId, records) {
   }
 
   console.log("[StackedBar] records:", records.length);
+
+  // Dispose previous instance on same DOM to avoid overlaps / weird hover states
+  const prev = echarts.getInstanceByDom(el);
+  if (prev) prev.dispose();
 
   const chart = echarts.init(el);
 
@@ -3568,11 +3983,28 @@ function renderStackedBarEChart(containerId, records) {
 
   const dates = Object.keys(byDate).sort();
 
+  // ✅ Hide labels when there are more than 30 days
+  const showLabels = dates.length <= 30;
+
+  // Shared label config for counts on stacks (only show if > 0)
+  const stackCountLabel = {
+    show: showLabels,
+    position: "inside",
+    fontWeight: 700,
+    formatter: (p) => (p.value > 0 ? String(p.value) : ""),
+  };
+
   const option = {
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
     },
+
+    // Hover highlight behavior (like the example)
+    emphasis: {
+      focus: "series",
+    },
+
     legend: {
       bottom: 0,
       data: [
@@ -3583,58 +4015,75 @@ function renderStackedBarEChart(containerId, records) {
         "Missing Contact",
       ],
     },
+
     grid: {
       left: "3%",
       right: "4%",
-      bottom: "12%",
+      top: "4%",
+      bottom: "15%",
       containLabel: true,
     },
+
     xAxis: {
       type: "value",
       name: "Records",
     },
+
     yAxis: {
       type: "category",
       data: dates,
     },
+
     series: [
       {
         name: "Missing VFC",
         type: "bar",
         stack: "total",
+        label: stackCountLabel,
+        emphasis: { focus: "series" },
         data: dates.map((d) => byDate[d].vfc),
       },
       {
         name: "Missing Funding",
         type: "bar",
         stack: "total",
+        label: stackCountLabel,
+        emphasis: { focus: "series" },
         data: dates.map((d) => byDate[d].funding),
       },
       {
         name: "Missing Race",
         type: "bar",
         stack: "total",
+        label: stackCountLabel,
+        emphasis: { focus: "series" },
         data: dates.map((d) => byDate[d].race),
       },
       {
         name: "Missing Ethnicity",
         type: "bar",
         stack: "total",
+        label: stackCountLabel,
+        emphasis: { focus: "series" },
         data: dates.map((d) => byDate[d].ethnicity),
       },
       {
         name: "Missing Contact",
         type: "bar",
         stack: "total",
+        label: stackCountLabel,
+        emphasis: { focus: "series" },
         data: dates.map((d) => byDate[d].contact),
       },
     ],
   };
 
-  chart.setOption(option);
+  chart.setOption(option, true);
 
   window.__activeECharts = window.__activeECharts || {};
   window.__activeECharts[containerId] = chart;
+
+  window.addEventListener("resize", () => chart.resize(), { passive: true });
 }
 
 function renderTreemapEChart(containerId, records) {
@@ -3683,11 +4132,6 @@ function renderTreemapEChart(containerId, records) {
           show: true,
           formatter: "{b}\n\n{c}",
         },
-        itemStyle: {
-          borderColor: "#ffffff",
-          borderWidth: 2,
-          gapWidth: 2,
-        },
       },
     ],
   };
@@ -3698,132 +4142,197 @@ function renderTreemapEChart(containerId, records) {
   window.__activeECharts[containerId] = chart;
 }
 
-function renderWeeklyLotUsageTable(records) {
-  console.log("[LotTable] render called");
-  console.log("[LotTable] records:", records?.length);
-
-  if (!Array.isArray(records) || records.length === 0) {
-    console.warn("[LotTable] no records");
+function renderVfcEligibilityWaterfallEChart(containerId, records) {
+  const el = document.getElementById(containerId);
+  if (!el) {
+    console.error("[VFCWaterfall] container not found:", containerId);
     return;
   }
 
-  const container = document.getElementById("lotUsageTable");
-  if (!container) {
-    console.error("[LotTable] container not found");
-    return;
+  const chart = echarts.init(el);
+
+  const norm = (v) => String(v ?? "").trim();
+  const isMissing = (v) => !v || !String(v).trim();
+
+  // 1) Count VFC types
+  const counts = new Map();
+  let total = 0;
+
+  for (const r of records || []) {
+    total += 1;
+
+    const raw = norm(r.vfc_status);
+    const key = isMissing(raw) ? "Missing eligibility" : raw;
+
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const ULTRA_900 = "#082595";
+  const ULTRA_800 = "#0a31c6";
+  const ULTRA_700 = "#113ff2";
+  const ULTRA_500 = "#4166f5";
+  const ULTRA_300 = "#718df8";
+  const ULTRA_100 = "#d2dbfd";
+
+  const GOLD = "#f59e0b"; // highlight missing
+  const codePalette = [ULTRA_700, ULTRA_500, ULTRA_800, ULTRA_300, ULTRA_100];
+
+  function colorForCategory(name, idx) {
+    if (name === "Total records") return ULTRA_900;
+    if (name === "VFC documented total") return ULTRA_800;
+    if (name === "Missing eligibility") return GOLD;
+
+    // For actual VFC codes like V01, V02, etc.
+    // Rotate palette so multiple codes do not look identical.
+    const p = codePalette[(idx * 7) % codePalette.length];
+    return p;
+  }
+  // 2) Build ordered types (Missing first, then descending by count)
+  const types = Array.from(counts.entries())
+    .sort((a, b) => {
+      const aMissing = a[0] === "Missing eligibility";
+      const bMissing = b[0] === "Missing eligibility";
+      if (aMissing !== bMissing) return aMissing ? -1 : 1;
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([k, v]) => ({ label: k, value: v }));
+
+  const missingCount = counts.get("Missing eligibility") || 0;
+  const documentedTotal = total - missingCount;
+
+  // 3) Waterfall categories:
+  const categories = [
+    "Total records",
+    ...types.map((t) => t.label),
+    "VFC documented total",
+  ];
+
+  // 4) Waterfall data
+  const base = [];
+  const step = [];
+
+  // Total
+  base.push(0);
+  step.push(total);
+
+  // Types
+  let cum = 0;
+  for (const t of types) {
+    base.push(cum);
+    step.push(t.value);
+    cum += t.value;
   }
 
-  // -----------------------------
-  // 1. Aggregate: Lot × Week
-  // -----------------------------
-  const matrix = {};
-  const weeks = new Set();
-  const lots = new Set();
-  const lotVaccines = {};
+  // End cap
+  base.push(0);
+  step.push(documentedTotal);
+  // Build per-bar colored data for the visible series (uses your palette logic)
+  const stepData = categories.map((name, i) => ({
+    value: step[i] || 0,
+    itemStyle: {
+      color: colorForCategory(name, i),
+    },
+  }));
 
-  records.forEach((r) => {
-    if (!r.administered_date || !r.lot_number) return;
+  const option = {
+    animation: true,
+    animationDuration: 700,
+    animationEasing: "cubicOut",
 
-    const week = getWeekLabel(r.administered_date);
-    const lot = r.lot_number.trim();
-    const vaccine = r.vaccine_name?.trim() || "Unknown Vaccine";
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params) => {
+        const idx = params?.[0]?.dataIndex ?? 0;
+        const name = categories[idx];
+        const v = step[idx] || 0;
 
-    weeks.add(week);
-    lots.add(lot);
+        if (name === "Total records") {
+          return `<b>${escapeHtml(name)}</b><br/>Count: ${v}`;
+        }
+        if (name === "VFC documented total") {
+          return `<b>${escapeHtml(
+            name
+          )}</b><br/>Count: ${v}<br/>Missing eligibility: ${missingCount}`;
+        }
+        return `<b>${escapeHtml(name)}</b><br/>Count: ${v}`;
+      },
+    },
 
-    // Track counts
-    const key = `${lot}||${week}`;
-    matrix[key] = (matrix[key] || 0) + 1;
+    grid: {
+      top: 30,
+      left: 30,
+      right: 18,
+      bottom: 50,
+      containLabel: true,
+    },
 
-    // Track vaccines per lot
-    if (!lotVaccines[lot]) lotVaccines[lot] = new Set();
-    lotVaccines[lot].add(vaccine);
-  });
+    xAxis: {
+      type: "category",
+      data: categories,
+      axisLabel: {
+        rotate: 0,
+        margin: 12,
+        interval: 0,
 
-  const weekList = Array.from(weeks).sort(
-    (a, b) => new Date(a.split("–")[0]) - new Date(b.split("–")[0])
-  );
+        // ✅ Show only codes (V01, V02, ...) on the axis
+        // Keep "Total records", "Missing eligibility", and "VFC documented total" readable.
+        formatter: (val) => {
+          const s = String(val);
 
-  const lotList = Array.from(lots).sort();
-  const maxValue = Math.max(1, ...Object.values(matrix));
+          if (s === "Total records") return "Total";
+          if (s === "Missing eligibility") return "Missing";
+          if (s === "VFC documented total") return "Documented";
 
-  // -----------------------------
-  // 2. Build table HTML
-  // -----------------------------
-  let html = `<table class="lot-heat-table">`;
+          // Extract first V## token, fallback to original if no match
+          const m = s.match(/\bV\d{2}\b/);
+          return m ? m[0] : s;
+        },
+      },
+    },
 
-  // Header
-  html += `<thead><tr><th>Lot #</th>`;
-  weekList.forEach((w) => {
-    html += `<th>${w}</th>`;
-  });
-  html += `</tr></thead><tbody>`;
+    yAxis: {
+      type: "value",
+      minInterval: 1,
+      name: "Record count",
+      nameGap: 12,
+    },
 
-  // Rows
-  lotList.forEach((lot) => {
-    // -----------------------------
-    // 🔍 Lot quality heuristics
-    // -----------------------------
-    const totalForLot = weekList.reduce(
-      (sum, w) => sum + (matrix[`${lot}||${w}`] || 0),
-      0
-    );
+    series: [
+      {
+        name: "base",
+        type: "bar",
+        stack: "wf",
+        data: base,
+        itemStyle: { color: "transparent" },
+        emphasis: { itemStyle: { color: "transparent" } },
+        tooltip: { show: false },
+      },
+      {
+        name: "VFC",
+        type: "bar",
+        stack: "wf",
+        data: stepData,
+        barMaxWidth: 42,
 
-    const activeWeeks = weekList.filter((w) => matrix[`${lot}||${w}`]).length;
+        label: {
+          show: true,
+          position: "inside",
+          formatter: (p) => (p.value ? String(p.value) : ""),
+        },
 
-    const isOneOff = totalForLot === 1;
-    const singleWeek = activeWeeks === 1;
-    const suspiciousFormat = /[^a-zA-Z0-9-]/.test(lot);
+        itemStyle: {
+          borderRadius: [6, 6, 6, 6],
+        },
+      },
+    ],
+  };
 
-    const possibleTypo = isOneOff || singleWeek || suspiciousFormat;
+  chart.setOption(option, true);
+  setTimeout(() => chart.resize(), 0);
 
-    html += `
-      <tr class="${possibleTypo ? "lot-risk" : ""}">
-        <td class="lot-label">
-          ${escapeHtml(lot)}
-          ${
-            possibleTypo
-              ? '<span class="lot-flag">⚠</span>'
-              : "<span>   </span>"
-          }
-        </td>
-    `;
+  window.__activeECharts = window.__activeECharts || {};
+  window.__activeECharts[containerId] = chart;
 
-    const vaccineList = Array.from(lotVaccines[lot] || []);
-
-    weekList.forEach((week) => {
-      const value = matrix[`${lot}||${week}`] || 0;
-      const intensity = Math.min(1, Math.sqrt(value / maxValue));
-
-      const tooltip = value
-        ? `
-Vaccine: ${vaccineList.join(", ")}
-Lot: ${lot}
-Week: ${week}
-Administrations: ${value}
-${possibleTypo ? "⚠ Possible lot typo (single or inconsistent usage)" : ""}
-`
-        : "";
-
-      html += `<td class="lot-cell ${
-        possibleTypo && value ? "lot-risk-cell" : ""
-      }" style="background-color: rgba(37, 99, 235, ${intensity})" title="${tooltip.replace(
-        /"/g,
-        "&quot;"
-      )}">${value || ""}</td>`;
-    });
-
-    html += `</tr>`;
-  });
-
-  html += `</tbody></table>`;
-  container.innerHTML = html;
-
-  console.log(
-    "[LotTable] rendered lots:",
-    lotList.length,
-    "weeks:",
-    weekList.length
-  );
+  window.addEventListener("resize", () => chart.resize(), { passive: true });
 }
-
