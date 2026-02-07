@@ -3830,7 +3830,7 @@ function hideWelcomeLoaderSafely() {
   }, remaining);
 }
 
-fetch("immunization_data.json")
+fetch("./immunization_data.json")
   .then((res) => res.json())
   .then((data) => {
     const quickRangeEl = document.getElementById("quickRange");
@@ -4336,3 +4336,4 @@ function renderVfcEligibilityWaterfallEChart(containerId, records) {
 
   window.addEventListener("resize", () => chart.resize(), { passive: true });
 }
+
