@@ -1,3 +1,4 @@
+@charset "UTF-8";
 /*************************************************
  * GLOBAL RESET + BASE
  *************************************************/
@@ -190,11 +191,6 @@ td input[type="checkbox"] {
   overflow-y: auto;
   padding: 12px;
   font-size: 12px;
-}
-
-#aiReport h3 {
-  font-size: 14px;
-  margin-top: 0;
 }
 
 #aiReport ul {
@@ -797,7 +793,7 @@ td input[type="checkbox"] {
 .actionRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0px;
 }
 
 /* 7) Keep hint to the RIGHT of button and prevent clipping */
@@ -1015,6 +1011,53 @@ td input[type="checkbox"] {
 .helpLink:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+}
+/* Header button group: Help + Home (single grouped control) */
+.headerActionGroup {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* When inside the group, remove the individual rounding so it looks like one unit */
+.headerActionGroup .helpLink {
+  border-radius: 0;
+}
+
+/* Home button (square) */
+.homeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: #cc2323;
+  color: #ffffff;
+
+  height: 32px; /* matches helpLink’s visual height (6px+ padding) */
+  width: 38px; /* square-ish */
+  cursor: pointer;
+}
+
+/* Subtle divider between the buttons */
+.headerActionGroup .homeBtn {
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.homeBtn:hover {
+  background: #b91c1c;
+}
+
+.homeBtn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(17, 63, 242, 1);
+}
+
+.homeBtnIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 /* Welcome help modal overlay */
@@ -2545,6 +2588,7 @@ body.startScreenActive::before {
   justify-content: center;
 
   background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 
   opacity: 0;
@@ -2553,7 +2597,13 @@ body.startScreenActive::before {
 
   transition: opacity 200ms ease, visibility 200ms ease;
 }
-
+@supports not (
+  (-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))
+) {
+  .startScreenOverlay {
+    background: rgba(15, 23, 42, 0.75);
+  }
+}
 .startScreenOverlay.isOpen {
   opacity: 1;
   visibility: visible;
@@ -2827,20 +2877,10 @@ body.startScreenActive::before {
   height: 360px; /* REQUIRED */
 }
 
-.trend-chart-container canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
 /* Chart Canvas */
 .chart-container {
   width: 100%;
   overflow-x: auto;
-}
-
-.chart-container canvas {
-  width: 100% !important;
-  height: 250px !important;
 }
 
 /* Modal Footer / Action Buttons */
@@ -3023,11 +3063,6 @@ body.startScreenActive::before {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
-}
-
-.trend-chart-card canvas {
-  width: 100% !important;
-  height: auto !important;
 }
 /* =========================
    Trend Carousel
@@ -3427,6 +3462,24 @@ body.startScreenActive::before {
 .ai-card-body li {
   margin: 3px 0;
 }
+.ai-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ai-table.lot-inventory-table {
+  table-layout: auto; /* content decides column width */
+  width: max-content; /* shrink-to-fit content width */
+  border-collapse: collapse;
+}
+
+.ai-table.lot-inventory-table th,
+.ai-table.lot-inventory-table td {
+  white-space: nowrap; /* keep content on one line */
+}
+
 .collapsible-content {
   display: none;
 }
@@ -3522,7 +3575,6 @@ body.startScreenActive::before {
   color: #b91c1c;
   white-space: nowrap;
 }
-
 .ai-reading {
   font-size: 13px;
   color: #6b7280;
@@ -3534,43 +3586,32 @@ body.startScreenActive::before {
 .ai-reading::after {
   content: "";
   position: absolute;
-  left: -40%;
   top: 0;
+  left: 0;
+
   width: 40%;
   height: 100%;
+
   background: linear-gradient(
     90deg,
     transparent,
     rgba(255, 255, 255, 0.6),
     transparent
   );
-  animation: shimmer 1.4s infinite;
+
+  /* Start the shimmer off-screen to the left */
+  transform: translateX(-140%);
+  animation: shimmerX 1.4s infinite;
+  will-change: transform;
 }
 
-@keyframes shimmer {
-  100% {
-    left: 120%;
+@keyframes shimmerX {
+  0% {
+    transform: translateX(-140%);
   }
-}
-
-.aiReportTitleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0px 0px 14px 0px;
-}
-.aiReportTitleText {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #111827;
-}
-
-.aiReportDisclaimer {
-  margin: 0;
-  padding: 0 14px 10px 14px;
-  font-size: 12px;
-  line-height: 1.4;
+  100% {
+    transform: translateX(340%);
+  }
 }
 
 /* =========================
@@ -3975,6 +4016,25 @@ body.startScreenActive::before {
     padding-top: 24px;
   }
 }
+
+/*************************************************
+ * AI REPORT PANEL
+ *************************************************/
+#aiReport {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  font-size: 12px;
+}
+
+#aiReport ul {
+  padding-left: 18px;
+}
+
+#missingChart {
+  max-width: 100%;
+  margin-top: 12px;
+}
 /* =========================
    AI Insights icon: twinkle twice
    (each twinkle = two quick flashes)
@@ -4020,4 +4080,169 @@ body.startScreenActive::before {
     transform: scale(1);
     filter: drop-shadow(0 0 0 rgba(255, 215, 128, 0));
   }
+}
+/* =========================
+   AI REPORT HEADER (TITLE + DQ BADGE ON ONE ROW)
+========================= */
+
+.aiReportHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  width: 100%;
+  padding: 10px 12px;
+}
+
+/* Title */
+.aiReportTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* DQ badge */
+.dqScoreBadge {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(2, 6, 23, 0.12);
+  background: #ffffff;
+
+  white-space: nowrap;
+}
+
+/* Text pieces */
+.dqScoreLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  opacity: 0.85;
+}
+
+.dqScoreValue {
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.dqScoreUnit {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  opacity: 0.85;
+}
+
+/* Optional: compact on small screens */
+@media (max-width: 520px) {
+  .aiReportHeader {
+    padding: 10px;
+  }
+
+  .dqScoreLabel {
+    display: none;
+  }
+}
+/* --- Data Quality badge states --- */
+#aiReport .dqScoreBadge {
+  border: 1px solid rgba(2, 6, 23, 0.12);
+  background: #ffffff;
+}
+
+/* 90%+ = dark green */
+#aiReport .dqScoreBadge.isExcellent {
+  background: rgba(20, 83, 45, 0.14);
+  border-color: rgba(20, 83, 45, 0.35);
+}
+#aiReport .dqScoreBadge.isExcellent .dqScoreLabel,
+#aiReport .dqScoreBadge.isExcellent .dqScoreValue,
+#aiReport .dqScoreBadge.isExcellent .dqScoreUnit {
+  color: #14532d;
+}
+
+/* 85%–89% = lime green */
+#aiReport .dqScoreBadge.isGood {
+  background: rgba(132, 204, 22, 0.18);
+  border-color: rgba(132, 204, 22, 0.45);
+}
+#aiReport .dqScoreBadge.isGood .dqScoreLabel,
+#aiReport .dqScoreBadge.isGood .dqScoreValue,
+#aiReport .dqScoreBadge.isGood .dqScoreUnit {
+  color: #3f6212;
+}
+
+/* 50%–84% = orange */
+#aiReport .dqScoreBadge.isWarn {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.42);
+}
+#aiReport .dqScoreBadge.isWarn .dqScoreLabel,
+#aiReport .dqScoreBadge.isWarn .dqScoreValue,
+#aiReport .dqScoreBadge.isWarn .dqScoreUnit {
+  color: #9a3412;
+}
+
+/* <50% = red */
+#aiReport .dqScoreBadge.isBad {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+#aiReport .dqScoreBadge.isBad .dqScoreLabel,
+#aiReport .dqScoreBadge.isBad .dqScoreValue,
+#aiReport .dqScoreBadge.isBad .dqScoreUnit {
+  color: #991b1b;
+}
+/* =========================
+   ECHARTS SIZING FIX (TREND MODAL)
+   Paste at VERY END of styles.css
+========================= */
+
+/* Keep cards from creating horizontal scroll that can confuse width calculations */
+.trend-chart-card {
+  overflow: hidden; /* was overflow-x: auto; remove for echarts */
+  height: 360px; /* keep the card height stable */
+  box-sizing: border-box;
+}
+
+/* Flex items can shrink without min-width:0, causing charts to collapse */
+.trend-carousel,
+.trend-stage,
+.trend-view,
+.trend-chart-card {
+  min-width: 0;
+}
+
+/* Force all echarts containers to fill the card */
+#echartStackedBar,
+#echartTreemap,
+#echartVfcWaterfall {
+  width: 100% !important;
+  height: 100% !important; /* inherits 360px from .trend-chart-card */
+  min-width: 0 !important;
+}
+
+/* Critical: do NOT allow auto height on echarts canvas */
+.trend-chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+.lot-one-off td {
+  background: rgba(251, 191, 36, 0.12);
+}
+.lot-rare td {
+  background: rgba(251, 191, 36, 0.08);
+}
+.lot-typo td {
+  background: rgba(239, 68, 68, 0.1);
 }
