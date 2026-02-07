@@ -128,3 +128,18 @@ Interactive charts to visualize documentation issues:
 ### Option 1: Python
 ```bash
 python -m http.server 8000
+```
+Then open:
+http://localhost:8000/
+
+### Option 2: live-server
+```bash
+live-server
+```
+
+---
+
+## Notes / Safety
+
+- This is a client-side demonstration tool.
+- Do not use PHI in production. Use only synthetic or de-identified data.
